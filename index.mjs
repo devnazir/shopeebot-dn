@@ -5,8 +5,12 @@ import axios from "axios";
 
 dotenv.config("./.env");
 const log = console.log;
+let currentHours = null;
 
 const shopeeURL = "https://shopee.co.id/";
+
+const target =
+  "https://shopee.co.id/Kabel-Data-Micro-USB-Putih-Panjang-1-Meter-Cable-Bulat-1m-100cm-1A-Smartphone-Handphone-Hp-Mikro-i.31169310.425438352";
 
 const sayHi = () => {
   log(
@@ -138,7 +142,9 @@ const goToHomepage = async (page) => {
       statusOfResponse(response);
       log(chalk.green("Loading..."));
 
-      const usernameElement = await page.$("div.navbar__username");
+      const usernameElement = await page.waitForSelector(
+        "div.navbar__username"
+      );
 
       if (usernameElement) {
         return true;
@@ -148,6 +154,62 @@ const goToHomepage = async (page) => {
     }
   } catch (err) {
     log(chalk.red(err));
+  }
+};
+
+const goToFlashSalePage = async (page) => {
+  log(chalk.blue("trying redirect to flash sale page..."));
+
+  try {
+    const flashSalePage = await page.goto(`${shopeeURL}flash_sale`, {
+      timeout: 0,
+      waitUntil: "domcontentloaded",
+    });
+
+    const response = await page.waitForResponse(() => {
+      return flashSalePage._status === 200;
+    });
+
+    if (response.ok()) {
+      statusOfResponse(response);
+      log(chalk.green("✅ redirected"));
+    }
+  } catch (err) {
+    log(chalk.red(err));
+  }
+};
+
+const tryToCheckout = async (page) => {
+  if (currentHours === 13) {
+    log(chalk.green("trying to checkout.."));
+    await page.goto(target, {
+      timeout: 0,
+    });
+    page.waitForSelector("button._3Kiuzg").then(async () => {
+      const toCart = await page.waitForSelector("button._3Kiuzg");
+      await toCart.click();
+
+      page
+        .goto(`${shopeeURL}cart`, {
+          timeout: 0,
+          waitUntil: "domcontentloaded",
+        })
+        .then(async (res) => {
+          const selectTopCart = await page.waitForSelector("div.aCSbhb");
+          const checked = await selectTopCart._page.$(".stardust-checkbox");
+          checked.click().then(async () => {
+            const checkout = await page.$(
+              "button.shopee-button-solid.shopee-button-solid--primary"
+            );
+            await checkout.click();
+          });
+        });
+    });
+  } else {
+    setTimeout(async () => {
+      await tryToCheckout(page);
+    }, 1000);
+    log("still waiting for 12 a clock");
   }
 };
 
@@ -163,6 +225,13 @@ async function runShopeeBot() {
 
     if (checkHasLogged) {
       log(chalk.green("✅ logged"));
+      // await goToFlashSalePage(page);
+      await tryToCheckout(page);
+      // page.waitForSelector(".flash-sale-session").then(async (res) => {
+      //   const one = (await page.$$(".flash-sale-session"))[1];
+      //   await one.click();
+      // });
+
       return;
     } else {
       log(
@@ -175,11 +244,18 @@ async function runShopeeBot() {
           `${process.env.password}`,
           page
         );
+
+        await goToFlashSalePage(page);
       }
     }
   } catch (err) {
     log(chalk.red(err));
   }
 }
+
+const checkHoursEverySecond = setInterval(() => {
+  currentHours = new Date().getHours();
+  log(chalk.green(`detail: ${new Date().toLocaleString()}`));
+}, 1000);
 
 runShopeeBot();
