@@ -1,7 +1,5 @@
 # ShopeeBot-DN
 
-README INI spesifik untuk yang bukan developer:v
-
 ### Cara menggunakan ShopeeBot-DN - Windows
 
 #### STEP 1
